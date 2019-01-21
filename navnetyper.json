@@ -474,7 +474,7 @@
             { "kode": "6103", "navn": "Adressenavn", "visningsnavn": "Adressenavn (veg/gate)" },
             { "kode": "6104", "navn": "Traktorveg", "visningsnavn": "Traktorveg" },
             { "kode": "6105", "navn": "Sti", "visningsnavn": "Sti" },
-            { "kode": "6106", "navn": "Vegkryss", "visningsnavn": "Vegkryss" },
+            { "kode": "6106", "navn": "Vegkryss", "visningsnavn": "Vegkryss (veg/gate)" },
             { "kode": "6107", "navn": "Vegsving", "visningsnavn": "Vegsving" },
             { "kode": "6108", "navn": "BakkeIVeg", "visningsnavn": "Bakke (Veg)" },
             { "kode": "6109", "navn": "Vegstrekning", "visningsnavn": "Vegstrekning" },
