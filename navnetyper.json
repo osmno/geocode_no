@@ -437,7 +437,7 @@
             { "kode": "5507", "navn": "UniversitetHøgskole", "visningsnavn": "Universitet/høgskole" },
             { "kode": "5508", "navn": "Forskningsstasjon", "visningsnavn": "Forskningsstasjon" },
             { "kode": "5509", "navn": "Fengsel", "visningsnavn": "Fengsel" },
-            { "kode": "5510", "navn": "MilitærtAnlegg", "visningsnavn": "Militært bygg/anlegg" }
+            { "kode": "5510", "navn": "MilitærtAnlegg", "visningsnavn": "Militært bygg" }
           ]
         },
         {
@@ -451,7 +451,7 @@
             { "kode": "5603", "navn": "Idrettshall", "visningsnavn": "Idrettshall" },
             { "kode": "5604", "navn": "Fornøyelsespark", "visningsnavn": "Fornøyelsespark" },
             { "kode": "5605", "navn": "Skiheis", "visningsnavn": "Skiheis" },
-            { "kode": "5606", "navn": "Alpinanlegg", "visningsnavn": "Alpinanlegg" },
+            { "kode": "5606", "navn": "Alpinanlegg", "visningsnavn": "Slalåm- og utforbakke" },
             { "kode": "5607", "navn": "Badeplass", "visningsnavn": "Badeplass" }
           ]
         }
