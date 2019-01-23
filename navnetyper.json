@@ -429,7 +429,7 @@
           "navnetyper":
           [
             { "kode": "5501", "navn": "Rådhus", "visningsnavn": "Rådhus (komm, fylke, stat)" },
-            { "kode": "5502", "navn": "Beredsskapsbygning", "visningsnavn": "Vaktstasjon/beredsskapsbygning" },
+            { "kode": "5502", "navn": "Beredsskapsbygning", "visningsnavn": "Vaktstasjon" },
             { "kode": "5503", "navn": "Sykehus", "visningsnavn": "Sykehus" },
             { "kode": "5504", "navn": "Helseinstitusjon", "visningsnavn": "Helseinstitusjon" },
             { "kode": "5505", "navn": "Barnehage", "visningsnavn": "Barnehage" },
