@@ -170,7 +170,7 @@
           [
             { "kode": "2701", "navn": "Torvtak", "visningsnavn": "Torvtak" },
             { "kode": "2702", "navn": "GrustakSteinbrudd", "visningsnavn": "Grustak/steinbrudd" },
-            { "kode": "2703", "navn": "Bergverk", "visningsnavn": "Bergverk" },
+            { "kode": "2703", "navn": "Bergverk", "visningsnavn": "Bergverk (underjord./dagbrudd)" },
             { "kode": "2704", "navn": "Fyllplass", "visningsnavn": "Fyllplass" }
           ]
         }
@@ -503,7 +503,7 @@
           "navnetyper":
           [
             { "kode": "6301", "navn": "Flyplass", "visningsnavn": "Flyplass" },
-            { "kode": "6302", "navn": "Landingsplass", "visningsnavn": "Landingsplass" }
+            { "kode": "6302", "navn": "Landingsplass", "visningsnavn": "Landingsstripe" }
           ]
         },
         {
