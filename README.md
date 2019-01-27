@@ -1,4 +1,4 @@
-# geocode2no
+# geocode2osm
 Geocoding for OSM in Norway
 
 Usage: <code>python geocode2osm.py [input_file.osm]</code>
