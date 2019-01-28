@@ -14,7 +14,8 @@ Usage: <code>python geocode2osm.py [input_file.osm]</code>
   * *place* - closest village/town etc with same name
   * *post district* - the area given by the post code
 * Please edit ADDRESS tags and run the program again to try out corrections
-* A detailed log is saved to the *"geocode_log.txt"* file
+* A detailed log is saved to a *"_log.txt"* file
+* To geocode a CSV-file, include *latitude* and *longitude* columns with 0 (zero) only in the CSV file, load it into JOSM and then save to a OSM file which may be processed by geocode2osm
 
 The following services are used for geocoding:
 * Kartverket cadastral register
