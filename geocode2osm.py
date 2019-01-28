@@ -19,7 +19,7 @@ import copy
 from xml.etree import ElementTree
 
 
-version = "0.1.0"
+version = "0.1.1"
 
 header = {"User-Agent": "osm-no/geocode2osm/" + version}
 
@@ -151,6 +151,7 @@ def nominatim_search (query_type, query_text, query_municipality, method):
 	log (json.dumps(result, indent=2))
 	log ("\n")
 	nominatim_count += 1
+	last_nominatim_time = time.time()
 
 	if result:
 		if (result[0]['class'] != "boundary") or (result[0]['type'] != "administrative"):  # Skip administrative boundaries (municipalities)
