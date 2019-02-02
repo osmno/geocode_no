@@ -19,7 +19,7 @@ import re
 from xml.etree import ElementTree
 
 
-version = "0.2.0"
+version = "0.3.0"
 
 header = {"User-Agent": "osm-no/geocode2osm/" + version}
 
@@ -48,11 +48,31 @@ street_synonyms = [
 	['plassen', 'plass', 'pl.'],
 	['torv', 'torg'],
 	['bro', 'bru'],
-	['brygga', 'bryggen', 'brygge', 'br.'],
+	['brygga', 'bryggen', 'bryggja', 'bryggje', 'brygge', 'br.'],
+	[u'løkken', u'løkka', u'løkke'],
+	['stuen', 'stua', 'stue'],
+	['hagen', 'haven', 'haga', 'hage', 'have'],
+	['viken', 'vika', 'vik'],
+	['aleen', 'alle'],
+	['fjorden', 'fjord'],
+	['bukten', 'bukta', 'bukt'],
+	['jordet', 'jord'],
+	['kollen', 'kolle'],
+	[u'åsen', u'ås'],
+	['sletten', 'sletta', 'slette'],
+	['verket', 'verk'],
+	['toppen', 'topp'],
 	['gamle', 'gml.'],
 	['kirke', 'kyrkje', 'krk.'],
-	['skole', 'skule', 'sk.']
+	['skole', 'skule', 'sk.'],
+	['ssons', 'ssens', 'sons', 'sens', 'sson', 'ssen', 'son', 'sen'],
+	['theodor', 'th.'],
+	['christian', 'chr.'],
+	['kristian', 'kr.'],
+	['johannes', 'johs.'],
+	['edvard', 'edv.']
 	]
+
 
 # This table is not yet supported in the code:
 
@@ -67,6 +87,21 @@ extra_synonyms = [
 	['st.', 'stasjon'],
 	['v.g.s.', u'videregående skole']
 	]
+
+
+# Table for testing genitive/word separation variations
+
+genitive_tests = [
+	('',   ' ' ),  # Example: 'Snorresveg'  -> 'Snorres veg'
+	(' ',  ''  ),  # Example: 'Snorres veg' -> 'Snorresveg'
+	('',   's' ),  # Example: 'Snorreveg'   -> 'Snorresveg' 
+	('',   's '),  # Example: 'Snorreveg'   -> 'Snorres veg'
+	(' ',  's '),  # Example: 'Snorre veg'  -> 'Snorres veg'
+	(' ',  's' ),  # Example: 'Snorre veg'  -> 'Snorresveg'	
+	('s ', ' ' ),  # Example: 'Snorres veg' -> 'Snorre veg'
+	('s',  ''  ),  # Example: 'Snorresveg'  -> 'Snorreveg'
+	('s',  ' ' )   # Example: 'Snorresveg'  -> 'Snorre veg'
+]
 
 
 # Output message
@@ -319,11 +354,13 @@ def get_municipality_data (query_municipality):
 	return bbox
 
 
-# Look up synonyms
+# Look up synonyms and genitive variations
 
 def try_synonyms (street, house_number, house_letter, postcode, city, municipality_ref):
 
 	low_street = street.lower() + " "
+
+	# Iterate all synonyms (twice for abbreviations)
 
 	for synonyms in street_synonyms:
 		found = False
@@ -339,32 +376,45 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 
 				# Test synonyms, including abbreviations
 
-				if low_street.find(test_word + " ") >= 0:
+				found_position = low_street.rfind(test_word + " ")
+				if found_position >= 0:
 					found = True
+
 					for synonym_replacement in synonyms:
 						if (synonym_replacement != synonym_word) and not("." in synonym_replacement):
 
-							new_street = low_street.replace(test_word, synonym_replacement)
+							new_street = low_street[0:found_position] + low_street[found_position:].replace(test_word, synonym_replacement)
 							result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, "address+synonymfix")
 							if (result):
 								return result
 
-				# Test space after genitive "s", then also with synonyms/abbreviations
+#							# Test genitive "s" -> "s " for each synonym (this is the most common case)
+#
+#							if (found_position > 0) and (low_street[ found_position - 1 ] == "s"):
+#								new_street = low_street[0:found_position - 1] + \
+#												low_street[found_position - 1:].replace(test_word, " " + synonym_replacement)
+#								result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
+#															"address+synonymfix+genitivefix")
+#								if (result):
+#									return result
 
-				if low_street.find("s" + test_word + " ") >= 0:
+						# Test genitive variations
 
-					new_street = low_street.replace("s" + test_word, "s " + test_word)
-					result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, "address+genitivefix")
-					if (result):
-						return result
+						if (found_position > 1) and not("sen" in synonyms):
+							for genitive_test in genitive_tests:
+								if ((low_street[found_position - 1] != " ") or (" " in genitive_test[0])) and\
+									((low_street[found_position - 1] != "s") and (low_street[found_position - 2:found_position] != "s ")\
+										or not("s" in genitive_test[1])):
 
-					for synonym_replacement in synonyms:
-						if (synonym_replacement != synonym_word) and not("." in synonym_replacement):
-							new_street = low_street.replace("s" + test_word, "s " + synonym_replacement)
-							result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
-										"address+genitivefix+synonymfix")
-							if (result):
-								return result
+									new_street = low_street[0:found_position - 2] + \
+										low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + synonym_replacement)
+#									new_street = low_street[0:found_position - 2] + \
+#													low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + test_word)
+									if new_street != low_street:
+										result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
+																	"address+genitivefix")
+										if (result):
+											return result
 
 			if found:
 				break  # Already match in synonym group, so no need to test rest of the group
@@ -431,9 +481,9 @@ if __name__ == '__main__':
 	message ("\nGeocoding ADDRESS tag for objects marked with GEOCODE tag in file '%s'...\n\n" % filename)
 
 	if filename.find(".osm") >= 0:
-		log_filename = filename.replace(".osm", "_log.txt")
+		log_filename = filename.replace(".osm", "_geocodelog.txt")
 	else:
-		log_filename = filename + "_log.txt"
+		log_filename = filename + "_geocodelog.txt"
 
 	log_file = open(log_filename, "w")
 
@@ -677,4 +727,4 @@ if __name__ == '__main__':
 		message ("SSR name types not found: %s - please post issue at 'https://github.com/osmno/geocode2osm'\n" % str(ssr_not_found))
 
 	log_file.close()
-  
+	
