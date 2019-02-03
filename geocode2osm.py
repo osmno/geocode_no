@@ -19,7 +19,7 @@ import re
 from xml.etree import ElementTree
 
 
-version = "0.3.0"
+version = "0.3.1"
 
 header = {"User-Agent": "osm-no/geocode2osm/" + version}
 
@@ -266,7 +266,7 @@ def matrikkel_search (street, house_number, house_letter, post_code, city, munic
 		if method.find("address") >= 0:
 			result_quality = "house"
 		else:
-			result_qutlity = "place"
+			result_quality = "place"
 		return (str(latitude), str(longitude), result_type, result_quality)
 	else:
 		return None
