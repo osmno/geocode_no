@@ -84,7 +84,7 @@
             { "kode": "1603", "navn": "Heller", "visningsnavn": "Heller" },
             { "kode": "1604", "navn": "Grotte", "visningsnavn": "Grotte" },
             { "kode": "1605", "navn": "GeologiskStruktur", "visningsnavn": "Geologisk struktur" },
-            { "kode": "1606", "navn": "AnnenTerrengdetalj", "visningsnavn": "Annen terrengdetalj" }
+            { "kode": "1606", "navn": "AnnenTerrengdetalj", "visningsnavn": "Terrengdetalj" }
           ]
         }
       ]
@@ -240,7 +240,7 @@
             { "kode": "3405", "navn": "Stryk", "visningsnavn": "Stryk" },
             { "kode": "3406", "navn": "Os", "visningsnavn": "Os" },
             { "kode": "3407", "navn": "Høl", "visningsnavn": "Høl" },
-            { "kode": "3408", "navn": "Lon", "visningsnavn": "Lon" },
+            { "kode": "3408", "navn": "Lon", "visningsnavn": "Lone" },
             { "kode": "3409", "navn": "Fløtningsanlegg", "visningsnavn": "Fløtningsanlegg" },
             { "kode": "3410", "navn": "Kilde", "visningsnavn": "Kilde" },
             { "kode": "3411", "navn": "Elvesving", "visningsnavn": "Elvesving" },
@@ -253,7 +253,7 @@
           "visningsnavn": "Detaljer i ferskvann",
           "navnetyper":
           [
-            { "kode": "3501", "navn": "AnnenVanndetalj", "visningsnavn": "Annen vanndetalj" }
+            { "kode": "3501", "navn": "AnnenVanndetalj", "visningsnavn": "Vanndetalj" }
           ]
         }
       ]
