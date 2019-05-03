@@ -19,7 +19,7 @@ import re
 from xml.etree import ElementTree
 
 
-version = "0.3.1"
+version = "0.3.2"
 
 header = {"User-Agent": "osm-no/geocode2osm/" + version}
 
@@ -233,7 +233,7 @@ def matrikkel_search (street, house_number, house_letter, post_code, city, munic
 	# Build query string. Use municipality instead of postcode/city if available
 	query = ""
 	if street:
-		query += "sok=%s" % urllib.quote(street.encode('utf-8'))
+		query += "sok=%s" % urllib.quote(street.replace("(","").replace(")","").encode('utf-8'))
 	if house_number:
 		query += "&nummer=%s" % house_number
 	if house_letter:
@@ -279,7 +279,7 @@ def ssr_search (query_text, query_municipality, method):
 	global ssr_count, ssr_not_found
 
 	query = "https://ws.geonorge.no/SKWS3Index/ssr/json/sok?navn=%s&epsgKode=4326&fylkeKommuneListe=%s&eksakteForst=true" \
-				% (urllib.quote(query_text.encode('utf-8')), query_municipality)
+				% (urllib.quote(query_text.replace("(","").replace(")","").encode('utf-8')), query_municipality)
 	request = urllib2.Request(query, headers=header)
 	file = try_urlopen(request)
 	result = json.load(file)
@@ -298,7 +298,7 @@ def ssr_search (query_text, query_municipality, method):
 		for place in result['stedsnavn']:
 			if not(place['navnetype'].lower().strip() in ssr_types):
 				message ("\n\t**** SSR name type '%s' not found - please post issue at 'https://github.com/osmno/geocode2osm' ****\n\n"\
-							% (place['navnetype'], ssr_filename))
+							% place['navnetype'])
 				log ("SSR name type '%s' not found\n" % place['navnetype'])
 				if not(place['navnetype'] in ssr_not_found):
 					ssr_not_found.append(place['navnetype'])
@@ -388,16 +388,6 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 							if (result):
 								return result
 
-#							# Test genitive "s" -> "s " for each synonym (this is the most common case)
-#
-#							if (found_position > 0) and (low_street[ found_position - 1 ] == "s"):
-#								new_street = low_street[0:found_position - 1] + \
-#												low_street[found_position - 1:].replace(test_word, " " + synonym_replacement)
-#								result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
-#															"address+synonymfix+genitivefix")
-#								if (result):
-#									return result
-
 						# Test genitive variations
 
 						if (found_position > 1) and not("sen" in synonyms):
@@ -408,8 +398,6 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 
 									new_street = low_street[0:found_position - 2] + \
 										low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + synonym_replacement)
-#									new_street = low_street[0:found_position - 2] + \
-#													low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + test_word)
 									if new_street != low_street:
 										result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
 																	"address+genitivefix")
@@ -727,4 +715,3 @@ if __name__ == '__main__':
 		message ("SSR name types not found: %s - please post issue at 'https://github.com/osmno/geocode2osm'\n" % str(ssr_not_found))
 
 	log_file.close()
-	
