@@ -241,7 +241,7 @@
             { "kode": "3406", "navn": "Os", "visningsnavn": "Os" },
             { "kode": "3407", "navn": "Høl", "visningsnavn": "Høl" },
             { "kode": "3408", "navn": "Lon", "visningsnavn": "Lone" },
-            { "kode": "3409", "navn": "Fløtningsanlegg", "visningsnavn": "Fløtningsanlegg" },
+            { "kode": "3409", "navn": "Fløtningsanlegg", "visningsnavn": "Fløtningsannlegg" },
             { "kode": "3410", "navn": "Kilde", "visningsnavn": "Kilde" },
             { "kode": "3411", "navn": "Elvesving", "visningsnavn": "Elvesving" },
             { "kode": "3412", "navn": "NesVedElver", "visningsnavn": "Nes ved elver" }
@@ -374,7 +374,7 @@
             { "kode": "5109", "navn": "Hyttefelt", "visningsnavn": "Hyttefelt" },
             { "kode": "5110", "navn": "Industriområde", "visningsnavn": "Industriområde" },
             { "kode": "5111", "navn": "HistoriskBosetting", "visningsnavn": "Historisk bosetting" },
-            { "kode": "5112", "navn": "Torg", "visningsnavn": "Torg" }
+            { "kode": "5112", "navn": "Torg", "visningsnavn": "Plass/torv (i tettsted/by)" }
           ]
         },
         {
@@ -481,7 +481,7 @@
             { "kode": "6110", "navn": "Vad", "visningsnavn": "Vad" },
             { "kode": "6111", "navn": "Grind", "visningsnavn": "Grind" },
             { "kode": "6112", "navn": "Tømmervelte", "visningsnavn": "Tømmervelte" },
-            { "kode": "6113", "navn": "Busstopp", "visningsnavn": "Busstopp" },
+            { "kode": "6113", "navn": "Busstopp", "visningsnavn": "Buss stopp" },
             { "kode": "6114", "navn": "Parkeringsplass", "visningsnavn": "Parkeringsplass" }
           ]
         },
