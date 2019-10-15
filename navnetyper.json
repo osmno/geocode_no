@@ -386,7 +386,7 @@
             { "kode": "5201", "navn": "Navnegard", "visningsnavn": "Navnegard" },
             { "kode": "5202", "navn": "Gard", "visningsnavn": "Gard" },
             { "kode": "5203", "navn": "Bruk", "visningsnavn": "Bruk (gardsbruk)" },
-            { "kode": "5204", "navn": "Seter", "visningsnavn": "Seter/støl" },
+            { "kode": "5204", "navn": "Seter", "visningsnavn": "Seter (sel, støl)" },
             { "kode": "5205", "navn": "ByggForJordbrukFiskeFangst", "visningsnavn": "Bygg for jordbr, fiske, fangst" },
             { "kode": "5206", "navn": "Eiendom", "visningsnavn": "Eiendommer" },
             { "kode": "5207", "navn": "Gjerde", "visningsnavn": "Gjerde" }
