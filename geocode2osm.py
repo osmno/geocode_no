@@ -1,13 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: utf8
 
-# geocode2osm
-# Geocodes ADDRESS tag for nodes in OSM xml file marked with GEOCODE=yes using a variety of techniques
-# Usage: python geocode_osm.py [input_filename.osm]
-# Geocoded file will be written to input_filename + "_new.osm"
-# Log is written to "_log.txt"
-# ADDRESS format: "Skøyen skole, Lørenveien 7, 0585 Oslo" (optional first part)
-
+"""
+geocode2osm
+Geocodes ADDRESS tag for nodes in OSM xml file marked with GEOCODE=yes using a variety of techniques
+Usage: python geocode_osm.py [input_filename.osm]
+Geocoded file will be written to input_filename + "_new.osm"
+Log is written to "_log.txt"
+ADDRESS format: "Skøyen skole, Lørenveien 7, 0585 Oslo" (optional first part)
+"""
 
 import json
 import sys
@@ -17,7 +18,6 @@ import csv
 import time
 import re
 from xml.etree import ElementTree
-
 
 version = "0.3.2"
 
@@ -104,27 +104,26 @@ genitive_tests = [
 ]
 
 
-# Output message
-
 def message (line):
-
+	"""
+	Output message to terminal
+	"""
 	sys.stdout.write (line)
 	sys.stdout.flush()
 
-
-# Log query results
-
 def log(log_text):
-
+	"""
+	Log query results
+	"""
 	if type(log_text) == unicode:
 		log_file.write(log_text.encode("utf-8"))
 	else:
 		log_file.write(log_text)
 
-
-# Open file/api, try up to 5 times, each time with double sleep time
-
 def try_urlopen (url):
+	"""
+	Open file/api, try up to 5 times, each time with double sleep time
+	"""
 
 	tries = 0
 	while tries < 5:
@@ -146,10 +145,11 @@ def try_urlopen (url):
 	message ("%s\n\n" % url.get_full_url())
 	sys.exit()
 
-
-# Concatenate address line
-
 def get_address(street, house_number, postal_code, city):
+
+	"""
+	Concatenate address line
+	"""
 
 	address = street
 	if house_number:
@@ -164,9 +164,11 @@ def get_address(street, house_number, postal_code, city):
 	return address.strip()
 
 
-# Geocoding with Nominatim
-
 def nominatim_search (query_type, query_text, query_municipality, method):
+
+	"""
+	Geocoding with Nominatim
+	"""
 
 	global nominatim_count, bbox, last_nominatim_time
 
@@ -224,9 +226,11 @@ def nominatim_search (query_type, query_text, query_municipality, method):
 		return None
 
 
-# Geocoding with Matrikkel Vegadresse
-
 def matrikkel_search (street, house_number, house_letter, post_code, city, municipality_ref, method):
+	
+	"""
+	Geocoding with Matrikkel Vegadresse
+	"""
 
 	global matrikkel_count
 
@@ -272,9 +276,11 @@ def matrikkel_search (street, house_number, house_letter, post_code, city, munic
 		return None
 
 
-# Geocoding with SSR
-
 def ssr_search (query_text, query_municipality, method):
+
+	"""
+	Geocoding with Sentralt StedsnavnRegister
+	"""
 
 	global ssr_count, ssr_not_found
 
@@ -316,10 +322,11 @@ def ssr_search (query_text, query_municipality, method):
 	
 	return None
 
-
-# Load bounding box for given municipality ref
-
 def get_municipality_data (query_municipality):
+
+	"""
+	Load bounding box for given municipality ref
+	"""
 
 	bbox = {
 		'latitude_min': 90.0,
@@ -353,10 +360,11 @@ def get_municipality_data (query_municipality):
 
 	return bbox
 
-
-# Look up synonyms and genitive variations
-
 def try_synonyms (street, house_number, house_letter, postcode, city, municipality_ref):
+
+	"""
+	Look up synonyms and genitive variations
+	"""
 
 	low_street = street.lower() + " "
 
