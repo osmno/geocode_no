@@ -166,9 +166,8 @@ def get_address(street, house_number, postal_code, city):
 
 # Geocoding with Nominatim
 
-def nominatim_search (query_type, query_text, query_municipality, method):
-
-	global nominatim_count, bbox, last_nominatim_time
+def nominatim_search (query_type, query_text, query_municipality, method, bbox=None):
+	global nominatim_count, last_nominatim_time
 
 	# Observe policy of 1 second delay between queries
 	time_now = time.time()
@@ -344,13 +343,8 @@ def get_municipality_data (query_municipality):
 		log ("Bounding box for municipality #%s: (%f, %f) (%f, %f)\n" % \
 			(query_municipality, bbox['latitude_min'], bbox['longitude_min'], bbox['latitude_max'], bbox['longitude_max']))
 	else:
-		bbox = {
-			'latitude_min': -90.0,
-			'latitude_max': 90.0,
-			'longitude_min': -180.0,
-			'longitude_max': 180.0
-			}
-
+                pass # return default
+        
 	return bbox
 
 
@@ -409,6 +403,142 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 
 	return None
 
+def geocode2osm(address):
+        address_split = address.split(",")
+        length = len(address_split)
+        for i in range(length):
+                address_split[i] = address_split[i].strip()
+
+        if length > 1:
+                street = address_split[length - 2]
+                postcode = address_split[length - 1][0:4]
+                city = address_split[length - 1][5:].strip()
+                house_number = ""
+                house_letter = ""
+
+                reg = re.search(r'(.*) [0-9]+[ \-\/]+([0-9]+)[ ]*([A-Za-z]?)$', street)
+                if not(reg):
+                        reg = re.search(r'(.*) ([0-9]+)[ ]*([A-Za-z]?)$', street)				
+                if reg:
+                        street = reg.group(1).strip()
+                        house_number = reg.group(2).upper()
+                        house_letter = reg.group(3)
+
+                if length > 2:
+                        street_extra = ", ".join(address_split[0:length - 2])
+                else:
+                        street_extra = ""
+
+                # Better match in Nominatim
+                for swap in fix_name:
+                        street = street.replace(swap[0], swap[1] + " ").replace("  "," ").strip()
+                        street_extra = street_extra.replace(swap[0], swap[1] + " ").replace("  "," ").strip()
+
+        else:
+                street = ""
+                street_extra = ""
+                house_number = ""
+                house_letter = ""
+                postcode = address[0:4]
+                city = address[5:].strip()
+
+        if postcode in post_districts:
+                municipality_ref = post_districts[postcode]['municipality_ref']
+                municipality_name = post_districts[postcode]['municipality_name']
+                postcode_name = post_districts[postcode]['city']
+        else:
+                municipality_ref = ""
+                municipality_name = ""
+                postcode_name = ""
+                log ("Post code %s not found in Posten table\n" % postcode)
+
+        # Attempt to geocode address
+
+        log ("[%s], [%s] [%s][%s], [%s] [%s (%s)]\n" % (street_extra, street, house_number, house_letter, postcode, city, postcode_name))
+        log ("Municipality #%s: %s\n" % (municipality_ref, municipality_name))
+
+        result = None
+        bbox = None
+
+        # First try to find exact location
+        if street:
+
+                # Start testing exact addresses
+                if house_number:
+
+                        # With both postcode and city
+                        result = matrikkel_search (street, house_number, house_letter, postcode, city, "", "address")
+
+                        # Without city
+                        if not(result):
+                                result = matrikkel_search (street, house_number, house_letter, postcode, "", "", "address+postcode")
+
+                        # Without postcode
+                        if not(result):
+                                result = matrikkel_search (street, house_number, house_letter, "", city, "", "address+city")
+
+                        # With municipality instead of postcode and city
+                        if not(result) and municipality_ref:
+                                result = matrikkel_search (street, house_number, house_letter, "", "", municipality_ref, "address+municipality")
+
+                        # Try fixes for abbreviations, synonyms and genitive ortography
+                        if not(result):
+                                result = try_synonyms (street, house_number, house_letter, postcode, city, municipality_ref)
+
+                # If no house number is given, the street attribute ofte contains a place name
+                if not(result) and not(house_number) and municipality_ref:
+                        result = ssr_search (street, municipality_ref, "street")
+
+                # Try Nominatim to discover amenities etc.
+                if not(result) and street_extra and municipality_name:
+                        result = nominatim_search ("q", get_address(street_extra, "", "", municipality_name),\
+                                                   municipality_ref, "address+extra", bbox=bbox)
+
+                if not(result) and municipality_name:
+                        result = nominatim_search ("q", get_address(street, house_number, "", municipality_name), municipality_ref, "address")
+
+                # Finally, try to look up street name in Matrikkel addresses
+                if not(result) and not(house_number):  # Todo: Rare hits from this section - investigate results
+                        result = matrikkel_search (street, "", "", postcode, city, municipality_ref, "street")
+
+                        if not(result) and postcode_name and (postcode_name != city.upper()) and not(municipality_ref):
+                                result = matrikkel_search (street, "", "", postcode, "", "", "street+postcode")
+
+        # Try to find village of post district if only one district per city
+        if not(result) and city and municipality_ref:
+
+                # Find city location if city has only one post district
+                if post_districts[postcode]['multiple'] == False:
+                        result = ssr_search (city, municipality_ref, "city")
+
+                        if not(result) and (postcode_name != city.upper()):
+                                result = ssr_search (postcode_name, municipality_ref, "postname")
+
+                        if not(result) and municipality_name:
+                                result = nominatim_search ("q", get_address (city, "", "", municipality_name), municipality_ref, "city")
+
+        # Try to find polygon center of post district (may give results a long way from villages)
+        if not(result) and postcode:
+                result = nominatim_search ("postalcode", postcode, municipality_ref, "postcode")
+
+        # Try to find village center of city
+        if not(result) and city and municipality_ref:
+                result = ssr_search (city, municipality_ref, "city")
+
+                if not(result) and (postcode_name != city.upper()):
+                        result = ssr_search (postcode_name, municipality_ref, "postname")
+
+        # As a last resort, just look up name of post code district
+        if not(result) and postcode_name:
+                if municipality_name != city.upper():
+                        result = nominatim_search ("q", get_address (postcode_name, "", "", municipality_name), municipality_ref, "city")
+
+                if not(result):
+                        result = nominatim_search ("city", postcode_name, municipality_ref, "city")
+
+
+        return result
+        
 
 # Main program
 
@@ -508,143 +638,11 @@ if __name__ == '__main__':
 			address = address_tag.get("v")
 			message ("%i %s " % (tried_count, address))	
 			log ("\nADDRESS %i: %s\n" % (tried_count, address))
+                        
+                        result = geocode2osm(address)
 
-			address_split = address.split(",")
-			length = len(address_split)
-			for i in range(length):
-				address_split[i] = address_split[i].strip()
-
-			if length > 1:
-				street = address_split[length - 2]
-				postcode = address_split[length - 1][0:4]
-				city = address_split[length - 1][5:].strip()
-				house_number = ""
-				house_letter = ""
-
-				reg = re.search(r'(.*) [0-9]+[ \-\/]+([0-9]+)[ ]*([A-Za-z]?)$', street)
-				if not(reg):
-					reg = re.search(r'(.*) ([0-9]+)[ ]*([A-Za-z]?)$', street)				
-				if reg:
-					street = reg.group(1).strip()
-					house_number = reg.group(2).upper()
-					house_letter = reg.group(3)
-
-				if length > 2:
-					street_extra = ", ".join(address_split[0:length - 2])
-				else:
-					street_extra = ""
-
-				# Better match in Nominatim
-				for swap in fix_name:
-					street = street.replace(swap[0], swap[1] + " ").replace("  "," ").strip()
-					street_extra = street_extra.replace(swap[0], swap[1] + " ").replace("  "," ").strip()
-
-			else:
-				street = ""
-				street_extra = ""
-				house_number = ""
-				house_letter = ""
-				postcode = address[0:4]
-				city = address[5:].strip()
-
-			if postcode in post_districts:
-				municipality_ref = post_districts[postcode]['municipality_ref']
-				municipality_name = post_districts[postcode]['municipality_name']
-				postcode_name = post_districts[postcode]['city']
-			else:
-				municipality_ref = ""
-				municipality_name = ""
-				postcode_name = ""
-				log ("Post code %s not found in Posten table\n" % postcode)
-
-			# Attempt to geocode address
-
-			log ("[%s], [%s] [%s][%s], [%s] [%s (%s)]\n" % (street_extra, street, house_number, house_letter, postcode, city, postcode_name))
-			log ("Municipality #%s: %s\n" % (municipality_ref, municipality_name))
-
-			result = None
-			bbox = None
-
-			# First try to find exact location
-			if street:
-
-				# Start testing exact addresses
-				if house_number:
-
-					# With both postcode and city
-					result = matrikkel_search (street, house_number, house_letter, postcode, city, "", "address")
-
-					# Without city
-					if not(result):
-						result = matrikkel_search (street, house_number, house_letter, postcode, "", "", "address+postcode")
-
-					# Without postcode
-					if not(result):
-						result = matrikkel_search (street, house_number, house_letter, "", city, "", "address+city")
-
-					# With municipality instead of postcode and city
-					if not(result) and municipality_ref:
-						result = matrikkel_search (street, house_number, house_letter, "", "", municipality_ref, "address+municipality")
-
-					# Try fixes for abbreviations, synonyms and genitive ortography
-					if not(result):
-						result = try_synonyms (street, house_number, house_letter, postcode, city, municipality_ref)
-
-				# If no house number is given, the street attribute ofte contains a place name
-				if not(result) and not(house_number) and municipality_ref:
-					result = ssr_search (street, municipality_ref, "street")
-
-				# Try Nominatim to discover amenities etc.
-				if not(result) and street_extra and municipality_name:
-					result = nominatim_search ("q", get_address(street_extra, "", "", municipality_name),\
-								municipality_ref, "address+extra")
-
-				if not(result) and municipality_name:
-					result = nominatim_search ("q", get_address(street, house_number, "", municipality_name), municipality_ref, "address")
-
-				# Finally, try to look up street name in Matrikkel addresses
-				if not(result) and not(house_number):  # Todo: Rare hits from this section - investigate results
-					result = matrikkel_search (street, "", "", postcode, city, municipality_ref, "street")
-
-					if not(result) and postcode_name and (postcode_name != city.upper()) and not(municipality_ref):
-						result = matrikkel_search (street, "", "", postcode, "", "", "street+postcode")
-
-			# Try to find village of post district if only one district per city
-			if not(result) and city and municipality_ref:
-
-				# Find city location if city has only one post district
-				if post_districts[postcode]['multiple'] == False:
-					result = ssr_search (city, municipality_ref, "city")
-
-					if not(result) and (postcode_name != city.upper()):
-						result = ssr_search (postcode_name, municipality_ref, "postname")
-
-					if not(result) and municipality_name:
-						result = nominatim_search ("q", get_address (city, "", "", municipality_name), municipality_ref, "city")
-
-			# Try to find polygon center of post district (may give results a long way from villages)
-			if not(result) and postcode:
-				result = nominatim_search ("postalcode", postcode, municipality_ref, "postcode")
-
-			# Try to find village center of city
-			if not(result) and city and municipality_ref:
-				result = ssr_search (city, municipality_ref, "city")
-
-				if not(result) and (postcode_name != city.upper()):
-					result = ssr_search (postcode_name, municipality_ref, "postname")
-
-			# As a last resort, just look up name of post code district
-			if not(result) and postcode_name:
-				if municipality_name != city.upper():
-					result = nominatim_search ("q", get_address (postcode_name, "", "", municipality_name), municipality_ref, "city")
-
-				if not(result):
-					result = nominatim_search ("city", postcode_name, municipality_ref, "city")
-
-			# If successful, update coordinates and save geocoding details for information
-
+                        # If successful, update coordinates and save geocoding details for information
 			if result:
-
 				latitude = result[0]
 				longitude = result[1]
 				result_type = result[2]
