@@ -21,3 +21,6 @@ The following services are used for geocoding:
 * Kartverket cadastral register.
 * Kartverket SSR place names.
 * OSM Nominatim (limited number of queries).
+
+Changelog:
+* 1.0: Python 3 version
