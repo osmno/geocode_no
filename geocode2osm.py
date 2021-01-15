@@ -1,40 +1,44 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf8
 
 # geocode2osm
 # Geocodes ADDRESS tag for nodes in OSM xml file marked with GEOCODE=yes using a variety of techniques
 # Usage: python geocode_osm.py [input_filename.osm]
-# Geocoded file will be written to input_filename + "_new.osm"
+# Geocoded file will be written to input_filename + "_geocoded.osm"
 # Log is written to "_log.txt"
 # ADDRESS format: "Skøyen skole, Lørenveien 7, 0585 Oslo" (optional first part)
 
 
 import json
 import sys
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
 import csv
 import time
 import re
+from io import TextIOWrapper
 from xml.etree import ElementTree
 
 
-version = "0.3.2"
+version = "1.0.0"
 
-header = {"User-Agent": "osm-no/geocode2osm/" + version}
+header = {"User-Agent": "osm-no/geocode2osm"}
+
+max_nominatim = 500  # Max number of Nominatim calls during one hour
+
+pause_nominatim = True  # Wait one hour for next Nominatim batch (else do only first batch)
 
 
 # Translation table for other information than street names
 
 fix_name = [
-	(u"Rådhuset", u"Rådhus"),
+	("Rådhuset", "Rådhus"),
 	("Kommunehuset", "Kommunehus"),
 	("Herredshuset", "Herredshus"),
 	("Heradshuset", "Heradshus"),
 	("st.", "stasjon"),
 	("sk.", "skole"),
-	("vgs.", u"videregående skole"),
-	("v.g.s.", u"videregående skole"),
+	("vgs.", "videregående skole"),
+	("v.g.s.", "videregående skole"),
 	("b&u", "barne og ungdom")
 	]
 
@@ -49,7 +53,7 @@ street_synonyms = [
 	['torv', 'torg'],
 	['bro', 'bru'],
 	['brygga', 'bryggen', 'bryggja', 'bryggje', 'brygge', 'br.'],
-	[u'løkken', u'løkka', u'løkke'],
+	['løkken', 'løkka', 'løkke'],
 	['stuen', 'stua', 'stue'],
 	['hagen', 'haven', 'haga', 'hage', 'have'],
 	['viken', 'vika', 'vik'],
@@ -58,7 +62,7 @@ street_synonyms = [
 	['bukten', 'bukta', 'bukt'],
 	['jordet', 'jord'],
 	['kollen', 'kolle'],
-	[u'åsen', u'ås'],
+	['åsen', 'ås'],
 	['sletten', 'sletta', 'slette'],
 	['verket', 'verk'],
 	['toppen', 'topp'],
@@ -79,13 +83,13 @@ street_synonyms = [
 extra_synonyms = [
 	['kirke', 'kyrkje'],
 	['skole', 'skule'],
-	[u'videregående skole', u'videregåande skule'],
-	[u'rådhus', u'rådhuset'],
+	['videregående skole', 'videregåande skule'],
+	['rådhus', 'rådhuset'],
 	['kommunehus', 'kommunehuset'],
 	['herredshus', 'herredshuset', 'heradshus', 'heradshuset'],
 	['krk.', 'kirke'],
 	['st.', 'stasjon'],
-	['v.g.s.', u'videregående skole']
+	['v.g.s.', 'videregående skole']
 	]
 
 
@@ -116,10 +120,7 @@ def message (line):
 
 def log(log_text):
 
-	if type(log_text) == unicode:
-		log_file.write(log_text.encode("utf-8"))
-	else:
-		log_file.write(log_text)
+	log_file.write(log_text)
 
 
 # Open file/api, try up to 5 times, each time with double sleep time
@@ -129,9 +130,10 @@ def try_urlopen (url):
 	tries = 0
 	while tries < 5:
 		try:
-			return urllib2.urlopen(url)
-		except urllib2.HTTPError, e:
-			if e.code in [429, 503, 504]:  # Too many requests, Service unavailable or Gateway timed out
+			return urllib.request.urlopen(url)
+
+		except urllib.error.HTTPError as e:
+			if e.code in [429, 503, 504]:  # "Too many requests", "Service unavailable" or "Gateway timed out"
 				if tries  == 0:
 					message ("\n") 
 				message ("\r\tRetry %i in %ss... " % (tries + 1, 5 * (2**tries)))
@@ -141,8 +143,15 @@ def try_urlopen (url):
 				message ("\n\nHTTP error %i: %s\n" % (e.code, e.reason))
 				message ("%s\n" % url.get_full_url())
 				sys.exit()
+
+		except urllib.error.URLError as e:  # Mostly "Connection reset by peer"
+			if tries  == 0:
+				message ("\n") 
+			message ("\r\tRetry %i in %ss... " % (tries + 1, 5 * (2**tries)))
+			time.sleep(5 * (2**tries))
+			tries += 1
 	
-	message ("\n\nHTTP error %i: %s\n" % (e.code, e.reason))
+	message ("\n\nError: %s\n" % e.reason)
 	message ("%s\n\n" % url.get_full_url())
 	sys.exit()
 
@@ -168,7 +177,7 @@ def get_address(street, house_number, postal_code, city):
 
 def nominatim_search (query_type, query_text, query_municipality, method):
 
-	global nominatim_count, bbox, last_nominatim_time
+	global nominatim_count, batch_count, bbox, last_nominatim_time
 
 	# Observe policy of 1 second delay between queries
 	time_now = time.time()
@@ -179,10 +188,10 @@ def nominatim_search (query_type, query_text, query_municipality, method):
 		bbox = get_municipality_data(query_municipality)
 
 	url = "https://nominatim.openstreetmap.org/search?%s=%s&countrycodes=no&viewbox=%f,%f,%f,%f&format=json&limit=10" \
-							% (query_type, urllib.quote(query_text.encode('utf-8')),
+							% (query_type, urllib.parse.quote(query_text),
 								bbox['longitude_min'], bbox['latitude_min'], bbox['longitude_max'], bbox['latitude_max'])
 
-	request = urllib2.Request(url, headers=header)
+	request = urllib.request.Request(url, headers=header)
 	file = try_urlopen(request)
 	result = json.load(file)
 	file.close()
@@ -191,6 +200,7 @@ def nominatim_search (query_type, query_text, query_municipality, method):
 	log (json.dumps(result, indent=2))
 	log ("\n")
 	nominatim_count += 1
+	batch_count += 1
 	last_nominatim_time = time.time()
 
 	if result:
@@ -233,7 +243,7 @@ def matrikkel_search (street, house_number, house_letter, post_code, city, munic
 	# Build query string. Use municipality instead of postcode/city if available
 	query = ""
 	if street:
-		query += "sok=%s" % urllib.quote(street.replace("(","").replace(")","").encode('utf-8'))
+		query += "sok=%s" % urllib.parse.quote(street.replace("(","").replace(")","").replace(":",""))
 	if house_number:
 		query += "&nummer=%s" % house_number
 	if house_letter:
@@ -241,20 +251,20 @@ def matrikkel_search (street, house_number, house_letter, post_code, city, munic
 	if post_code and not(municipality_ref):
 		query += "&postnummer=%s" % post_code
 	if city and not(municipality_ref):
-		query += "&poststed=%s" % urllib.quote(city.encode('utf-8'))
+		query += "&poststed=%s" % urllib.parse.quote(city)
 	if municipality_ref:
 		query += "&kommunenummer=%s" % municipality_ref
 
 	url = "https://ws.geonorge.no/adresser/v1/sok?" + query + "&treffPerSide=10"
 
-	request = urllib2.Request(url, headers=header)
+	request = urllib.request.Request(url, headers=header)
 	file = try_urlopen(request)
 	result = json.load(file)
 	file.close()
 
 	result = result['adresser']
 
-	log ("Matrikkel (%s): %s\n" % (method, urllib.unquote(query.encode('ASCII')).decode('utf-8')))
+	log ("Matrikkel (%s): %s\n" % (method, urllib.parse.unquote(query)))  # .encode('ASCII')).decode('utf-8')))
 	log (json.dumps(result, indent=2))
 	log ("\n")
 	matrikkel_count += 1
@@ -279,8 +289,8 @@ def ssr_search (query_text, query_municipality, method):
 	global ssr_count, ssr_not_found
 
 	query = "https://ws.geonorge.no/SKWS3Index/ssr/json/sok?navn=%s&epsgKode=4326&fylkeKommuneListe=%s&eksakteForst=true" \
-				% (urllib.quote(query_text.replace("(","").replace(")","").encode('utf-8')), query_municipality)
-	request = urllib2.Request(query, headers=header)
+				% (urllib.parse.quote(query_text.replace("(","").replace(")","")), query_municipality)
+	request = urllib.request.Request(query, headers=header)
 	file = try_urlopen(request)
 	result = json.load(file)
 	file.close()
@@ -330,7 +340,7 @@ def get_municipality_data (query_municipality):
 
 	if query_municipality and (query_municipality != "2100"):  # Exclude Svalbard
 		query = "https://ws.geonorge.no/kommuneinfo/v1/kommuner/%s" % query_municipality
-		request = urllib2.Request(query, headers=header)
+		request = urllib.request.Request(query, headers=header)
 		file = try_urlopen(request)
 		result = json.load(file)
 		file.close()
@@ -388,6 +398,16 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 							if (result):
 								return result
 
+#							# Test genitive "s" -> "s " for each synonym (this is the most common case)
+#
+#							if (found_position > 0) and (low_street[ found_position - 1 ] == "s"):
+#								new_street = low_street[0:found_position - 1] + \
+#												low_street[found_position - 1:].replace(test_word, " " + synonym_replacement)
+#								result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
+#															"address+synonymfix+genitivefix")
+#								if (result):
+#									return result
+
 						# Test genitive variations
 
 						if (found_position > 1) and not("sen" in synonyms):
@@ -398,6 +418,8 @@ def try_synonyms (street, house_number, house_letter, postcode, city, municipali
 
 									new_street = low_street[0:found_position - 2] + \
 										low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + synonym_replacement)
+#									new_street = low_street[0:found_position - 2] + \
+#													low_street[found_position - 2:].replace(genitive_test[0] + test_word, genitive_test[1] + test_word)
 									if new_street != low_street:
 										result = matrikkel_search (new_street, house_number, house_letter, postcode, city, municipality_ref, \
 																	"address+genitivefix")
@@ -429,22 +451,22 @@ if __name__ == '__main__':
 	# Load post code districts from Posten
 
 	post_filename = 'https://www.bring.no/postnummerregister-ansi.txt'
-	file = urllib2.urlopen(post_filename)
-	postal_codes = csv.DictReader(file, fieldnames=['post_code','post_city','municipality_ref','municipality_name','post_type'], delimiter="\t")
+	file = urllib.request.urlopen(post_filename)
+	postal_codes = csv.DictReader(TextIOWrapper(file, "windows-1252"), fieldnames=['post_code','post_city','municipality_ref','municipality_name','post_type'], delimiter="\t")
 	post_districts = {}
 
 	for row in postal_codes:
 		entry = {
-			'city': row['post_city'].decode("windows-1252"),
+			'city': row['post_city'],
 			'municipality_ref': row['municipality_ref'],
-			'municipality_name': row['municipality_name'].decode("windows-1252"),
+			'municipality_name': row['municipality_name'],
 			'type': row['post_type'],  # G, P or B
 			'multiple': False
 		}
 
 		# Discovre possible multiples post code districts for the same city name
 		if entry['type'] == "G":
-			for post_code, post in post_districts.iteritems():
+			for post_code, post in iter(post_districts.items()):
 				if (post['city'] == entry['city']) and (post['type'] == "G"):
 					post['multiple'] = True
 					entry['multiple'] = True
@@ -454,7 +476,7 @@ if __name__ == '__main__':
 	# Load name categories from Github
 
 	ssr_filename = 'https://raw.githubusercontent.com/osmno/geocode2osm/master/navnetyper.json'
-	file = urllib2.urlopen(ssr_filename)
+	file = urllib.request.urlopen(ssr_filename)
 	name_codes = json.load(file)
 	file.close()
 
@@ -476,6 +498,7 @@ if __name__ == '__main__':
 	log_file = open(log_filename, "w")
 
 	nominatim_count = 0
+	batch_count = 0
 	ssr_count = 0
 	matrikkel_count = 0
 	tried_count = 0
@@ -499,7 +522,7 @@ if __name__ == '__main__':
 		address_tag = node.find("tag[@k='ADDRESS']")
 		geocode_tag = node.find("tag[@k='GEOCODE']")
 
-		if (geocode_tag != None) and (address_tag != None) and (geocode_tag.get("v").lower() != "no"):
+		if (geocode_tag != None) and (address_tag != None) and (geocode_tag.get("v").lower() not in ["no", "done"]):
 
 			# Decompose address into street, house number, letter, postcode and city
 			# Address format: "Skøyen skole, Lørenveien 7, 0585 Oslo" (optional first part)
@@ -686,12 +709,25 @@ if __name__ == '__main__':
 				if tag != None:
 					node.remove(tag)
 
+			geocode_tag.set("v", "done")  # Do not geocode next time
+
+			# Limit Nominatim calls per hour to observe usage policy
+
+			if batch_count >= max_nominatim:
+				if pause_nominatim:
+					message ("Sleep for one hour\n")
+					batch_count = 0
+					time.sleep(60*60)  # SLeep one hour
+				else:
+					message ("Exceeded %i Nominatim calls per hour\n" % max_nominatim)
+					break
+
 	# Wrap up
 
 	if filename.find(".osm") >= 0:
-		filename = filename.replace(".osm", "_new.osm")
+		filename = filename.replace(".osm", "_geocoded.osm")
 	else:
-		filename = filename + "_new.osm"
+		filename = filename + "_geocoded.osm"
 
 	tree.write(filename, encoding='utf-8', method='xml', xml_declaration=True)
 
